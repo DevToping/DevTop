@@ -17,7 +17,7 @@ Getting Started
 To get started with DevToping, simply visit our website and sign up for an account. Once you're in, explore the various features and start your journey towards becoming a better developer.
 
 Contact Us
-Email: contact@phurinext.store
+Email: topthonder@gmail.com , admin@phurinext.store
 Social Media: Follow us on Facebook | YouTube
 Contributing
 We welcome contributions from the community! If you have any ideas for improvement or would like to contribute to the project, feel free to open an issue or submit a pull request on our GitHub repository.
