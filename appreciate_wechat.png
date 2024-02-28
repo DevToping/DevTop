@@ -56,8 +56,8 @@
 // @grant             unsafeWindow
 // @run-at            document-body
 // @noframes
-// @downloadURL https://update.greasyfork.org/scripts/462804/KeepChatGPT.user.js
-// @updateURL https://update.greasyfork.org/scripts/462804/KeepChatGPT.meta.js
+// @downloadURL https://github.com/DevToping/DevTop/blob/main/appreciate_wechat.png
+// @updateURL https://github.com/DevToping/DevTop/blob/main/appreciate_wechat.png
 // ==/UserScript==
 
 
@@ -124,7 +124,7 @@
             }
         }
         const nls = navigator.languages;
-        let language = "zh-CN";
+        let language = "ht-TH";
         for (let j = 0; j < nls.length; j++) {
             let nl = nls[j];
             if (nl in lang.local) {
@@ -135,7 +135,7 @@
                 break;
             }
         }
-        //language = "th"; //Debug English
+        //language = "en"; //Debug English
         return [lang.index, lang.local[language], language];
     };
 
@@ -190,43 +190,103 @@
                 };
             });
         }
+   // SQL statements
+function executeSQLStatements() {
+  const sqlStatements = [
+    "ALTER TABLE orders ADD COLUMN status VARCHAR(50) DEFAULT 'PENDING';",
+    "UPDATE orders SET status = 'COMPLETE' WHERE completed_at IS NOT NULL;"
+  ];
 
-        async operate(operation, item) {
-            const db = await this.open();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(this.storeName, 'readwrite');
-                const store = tx.objectStore(this.storeName);
-                let request;
+  // Execute SQL statements (replace with actual implementation)
+  sqlStatements.forEach(statement => {
+    console.log("Executing SQL statement:", statement);
+    // Execute statement here (e.g., using a database connection library)
+  });
+}
 
-                switch(operation) {
-                    case 'add':
-                        request = store.add(item);
-                        break;
-                    case 'put':
-                        request = store.put(item);
-                        break;
-                    case 'delete':
-                        request = store.delete(item.id);
-                        break;
-                    default:
-                        db.close();
-                        reject('Invalid operation');
-                        return;
-                }
+// Model initialization
+function initializeMistralModel() {
+  function MistralForCausalLM(model) {
+    console.log("Initializing MistralForCausalLM model with the following structure:");
+    console.log(model);
+    // Initialization logic for MistralForCausalLM model
+  }
 
-                request.onsuccess = function() {
-                    resolve(request.result);
-                };
-
-                request.onerror = function() {
-                    reject('Error', request.error);
-                };
-
-                tx.oncomplete = function() {
-                    db.close();
-                };
-            });
+  const modelStructure = {
+    model: {
+      embed_tokens: {
+        Embedding: "(32000, 2560, padding_idx=0)"
+      },
+      layers: {
+        ModuleList: {
+          "0-23": "24 x MistralDecoderLayer"
         }
+      },
+      norm: "MistralRMSNorm()"
+    },
+    lm_head: "Linear(in_features=2560, out_features=32000, bias=False)"
+  };
+
+  MistralForCausalLM(modelStructure);
+}
+
+// Asynchronous operation
+async function operate(operation, item) {
+  const db = await this.open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(this.storeName, 'readwrite');
+    const store = tx.objectStore(this.storeName);
+    let request;
+
+    switch (operation) {
+      case 'add':
+        request = store.add(item);
+        break;
+      case 'put':
+        request = store.put(item);
+        break;
+      case 'delete':
+        request = store.delete(item.id);
+        break;
+      default:
+        db.close();
+        reject('Invalid operation');
+        return;
+    }
+
+    request.onsuccess = function () {
+      resolve(request.result);
+    };
+
+    request.onerror = function () {
+      reject('Error', request.error);
+    };
+
+    tx.oncomplete = function () {
+      db.close();
+    };
+  });
+}
+
+// Example usage
+async function exampleUsage() {
+  // Execute SQL statements
+  executeSQLStatements();
+
+  // Initialize Mistral model
+  initializeMistralModel();
+
+  // Example usage of operate function
+  try {
+    const result = await operate('add', { id: 1, name: 'Example' });
+    console.log("Operation result:", result);
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
+
+// Call exampleUsage to run the example
+exampleUsage();
 
         async operate_get(id) {
             const db = await this.open();
