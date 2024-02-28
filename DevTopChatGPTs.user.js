@@ -58,10 +58,562 @@
 // @noframes
 // @downloadURL https://github.com/DevToping/DevTop/blob/main/appreciate_wechat.png
 // @updateURL https://github.com/DevToping/DevTop/blob/main/appreciate_wechat.png
+// @match             *://*/*
+// @exclude        *www.bilibili.com/video*
+// @exclude        *www.bilibili.com/v*
+// @exclude        *www.bilibili.com/s/*
+// @exclude        *www.bilibili.com/bangumi*
+// @exclude        https://www.bilibili.com/medialist/play/*
+// @exclude        *www.youtube.com/watch*
+// @exclude        *https://perchance.org*
+// @exclude        *www.github.com*
+// @exclude        https://lanhuapp.com/*
+// @exclude        https://www.douyu.com/*
+// @exclude        https://www.zhihu.com/signin?*
+// @exclude        https://tieba.baidu.com/*
+// @exclude        https://v.qq.com/*
+// @exclude        *.taobao.com/*
+// @exclude        *tmall.com*
+// @exclude        *signin*
+// @connect     eemm.me
+// @grant       GM_getValue
+// @grant       GM_setValue
+// @grant       GM_addStyle
+// @grant       GM_deleteValue
+// @grant       GM_xmlhttpRequest
+// @grant       GM_setClipboard
+// @grant       GM_registerMenuCommand
+// @run-at      document-start
+// @downloadURL https://update.greasyfork.org/scripts/28497/Remove%20web%20limits%28modified%29.user.js
+// @updateURL https://update.greasyfork.org/scripts/28497/Remove%20web%20limits%28modified%29.meta.js
 // ==/UserScript==
-
-
 (function() {
+    'use strict';
+
+    var settingData = {
+        "status":1,
+        "version" : 0.1,
+        "message" : "啦啦啦,啦啦啦,我是卖报的小行家",
+        "positionTop":"0",
+        "positionLeft":"0",
+        "positionRight":"auto",
+        "addBtn" : true,
+        "connectToTheServer" : false,
+        "waitUpload":[],
+        "currentURL":"null",
+        "shortcut":3,
+        // 域名规则列表
+        "rules" : {
+            "rule_def": {
+                "name": "default",
+                "hook_eventNames": "contextmenu|select|selectstart|copy|cut|dragstart|mousemove|beforeunload",
+                "unhook_eventNames": "mousedown|mouseup|keydown|keyup",
+                "dom0": true,
+                "hook_addEventListener": true,
+                "hook_preventDefault": true,
+                "hook_set_returnValue": true,
+                "add_css": true
+            },
+            "rule_plus": {
+                "name": "default",
+                "hook_eventNames": "contextmenu|select|selectstart|copy|cut|dragstart|mousedown|mouseup|mousemove|beforeunload",
+                "unhook_eventNames": "keydown|keyup",
+                "dom0": true,
+                "hook_addEventListener": true,
+                "hook_preventDefault": true,
+                "hook_set_returnValue": true,
+                "add_css": true
+            },
+            "rule_zhihu": {
+                "name": "default",
+                "hook_eventNames": "contextmenu|select|selectstart|copy|cut|dragstart|mousemove",
+                "unhook_eventNames": "keydown|keyup",
+                "dom0": true,
+                "hook_addEventListener": true,
+                "hook_preventDefault": true,
+                "hook_set_returnValue": true,
+                "add_css": true
+            }
+        },
+        "data": []
+        }
+
+    var rwl_userData = null;
+    var hostname = window.location.hostname;
+    var btn_node = null;
+    var rule = null;
+    var list = null;
+    var hasFrame = false;
+
+    // 储存名称
+    var storageName = "iqxinStorageName";
+    // 要处理的 event 列表
+    var hook_eventNames, unhook_eventNames, eventNames;
+    // 储存被 Hook 的函数
+    var EventTarget_addEventListener = EventTarget.prototype.addEventListener;
+    var document_addEventListener = document.addEventListener;
+    var Event_preventDefault = Event.prototype.preventDefault;
+
+    // 查看本地是否存在旧数据
+    rwl_userData = GM_getValue("rwl_userData");
+    if(!rwl_userData){
+        rwl_userData = settingData
+        // GM_setValue("rwl_userData",rwl_userData);
+    }
+    // 自动更新数据
+    for(let value in settingData){
+        if(!rwl_userData.hasOwnProperty(value)){
+            rwl_userData[value] = settingData[value];
+            GM_setValue("rwl_userData",rwl_userData);
+        }
+    }
+
+    version_up_3_to_4();
+
+    // 获取黑名单网站
+    list = get_black_list();
+
+    // 添加按钮
+    // if(rwl_userData.addBtn){
+        addBtn();  // 添加
+        btn_node = document.getElementById("black_node");
+
+        var timer = setInterval(function(){
+            if(document.getElementById("black_node")){
+                clearInterval(timer);
+                qxinStart();
+            } else {
+                addBtn();
+            }
+        },500)
+
+    // }
+
+    GM_registerMenuCommand("Remove copy restrictions settings", setMenu)
+    var userSetting = GM_getValue("rwl_userData");
+
+      function addBtn(){
+        var node = document.createElement("remove-web-limits-iqxin");
+        node.id = "rwl-iqxin";
+        node.className = "rwl-exempt";
+
+        // 再次打开窗口小于之前窗口的情况,导致按钮出现在可视窗口之外
+        var screenClientHeight = document.documentElement.clientHeight;
+        var tempHeight;
+        if (rwl_userData.positionTop>screenClientHeight){
+            tempHeight  = screenClientHeight -40;
+        } else{
+            tempHeight = rwl_userData.positionTop;
+        }
+        // 改变窗口大小的情况
+        window.onresize=function(){
+            var screenClientHeight = document.documentElement.clientHeight;
+            var tempHeight;
+
+            if (rwl_userData.positionTop>screenClientHeight){
+                    tempHeight  = screenClientHeight -40;
+            } else{
+                tempHeight = rwl_userData.positionTop;
+            }
+
+            node.style.top =  tempHeight + "px";
+        }
+
+        tempHeight = tempHeight<0?0:tempHeight
+        node.style.cssText = "position:fixed;top:"+tempHeight+"px;left:"+rwl_userData.positionLeft+"px;right:"+rwl_userData.positionRight+"px;";
+        // node.innerHTML = '<label><input type="checkbox" name="" id="black_node">黑名单</label><qxinbutton id="delete">delete</btton>';
+        // node.innerHTML = '<label>限制解除 <input type="checkbox"  name="" id="black_node"></label>';
+        node.innerHTML = '<qxinbutton type="qxinbutton" id="rwl-setbtn"> set </qxinbutton> <lalala style="cursor:move; font-size:12px;">限制解除</lalala> <input type="checkbox" name="" id="black_node" >';
+        if(window.self === window.top){
+            if (document.querySelector("body")){
+                document.body.appendChild(node);
+            } else {
+                document.documentElement.appendChild(node);
+            }
+        }
+        node.addEventListener("mouseover",function(){
+            node.classList.add("rwl-active-iqxin");
+        });
+        node.addEventListener("mouseleave",function(){
+            setTimeout(function(){
+                node.classList.remove("rwl-active-iqxin");
+                black_check(black_node.checked);
+            },100)
+        });
+
+var style = document.createElement("style");
+        style.type="text/css";
+
+        var styleInner = "#rwl-iqxin{" +
+                "position:fixed;" +
+                "transform:translate(-95%,0);" +
+                "width:85px;" +
+                "height:25px;" +
+                "font-size:12px;" +
+                "font-weight: 500;" +
+                "font-family:Verdana, Arial, '宋体';" +
+                "color:#fff;" +
+                "background:#333;" +
+                "z-index:2147483647;" +
+                "margin: 0;" +
+                "opacity:0.05;" +
+                "transition:0.3s;" +
+                "overflow:hidden;" +
+                "user-select:none;" +
+                "text-align:center;" +
+                "white-space:nowrap;" +
+                "line-height:25px;" +
+                "padding:0 16px;" +
+                "border:1px solid #ccc;" +
+                "border-width:1px 1px 1px 0;" +
+                "border-bottom-right-radius:5px;" +
+                "box-sizing: content-box;" +
+            "}" +
+            "#rwl-iqxin input{" +
+                "margin: 0;" +
+                "padding: 0;" +
+                "vertical-align:middle;" +
+                "-webkit-appearance:checkbox !important;" +
+                "-moz-appearance:checkbox;" +
+                "position: static;" +
+                "clip: auto;" +
+                "opacity: 1;" +
+                "cursor: pointer;" +
+            "}" +
+            "#rwl-iqxin.rwl-active-iqxin{" +
+                "left: 0px;" +
+                "transform:translate(0,0);" +
+                "opacity: 0.9;" +
+                "height: 32px;" +
+                "line-height: 32px" +
+            "}" +
+            "#rwl-iqxin label{" +
+                "margin:0;" +
+                "padding:0;" +
+                "font-weight:500;" +
+            "}" +
+            "#rwl-iqxin #rwl-setbtn{" +
+                "margin: 0 4px 0 0;" +
+                "padding: 0 0 0 4px;" +
+                "border: none;" +
+                "border-radius: 2px;" +
+                "cursor: pointer;" +
+                "background: #fff;" +
+                "color: #000;" +
+            "}" +
+            " "
+        if(!rwl_userData.addBtn){
+            var styleTemp = "#rwl-iqxin{display:none}";
+            style.innerHTML = styleInner + styleTemp;
+        } else {
+            style.innerHTML = styleInner;
+        }
+        if(document.querySelector("#rwl-iqxin")){
+            // console.log("แทรกตามสไตล์");
+            document.querySelector("#rwl-iqxin").appendChild(style);
+        } else {
+            // console.log("แทรกผ่าน GM");
+            GM_addStyle(styleInner);
+        }
+    };
+     function setBtnClick(){
+        document.querySelector("#rwl-setbtn").addEventListener("click",setMenu);
+    }
+
+    // 菜单
+     function setMenu(){
+            var oldEditBox = document.querySelector("#rwl-setMenu");
+            if(oldEditBox){
+                oldEditBox.parentNode.removeChild(oldEditBox);
+                return;
+            }
+            var userSetting = GM_getValue("rwl_userData");
+            var upload_checked = userSetting.connectToTheServer?"checked":"";
+            var btnchecked =  userSetting.addBtn?'checked':''
+
+            var odom = document.createElement("div");
+            odom.id = "rwl-setMenu";
+            odom.style.cssText ="position: fixed;" +
+                "top: 100px;" +
+                "left: 50px;" +
+                "padding: 10px;" +
+                "background: #fff;" +
+                "border-radius: 4px;";
+            GM_addStyle("#rwl-setMenuSave," +
+                "#rwl-reset," +
+                "#rwl-setMenuClose{" +
+                    "margin: 0;" +
+                    "padding: 0 2px;" +
+                    "border: none;" +
+                    "border-radius: 2px;" +
+                    "cursor: pointer;" +
+                    "background: #fff;" +
+                    "color: #000;" +
+                "}" +
+                "#rwl-reset{" +
+                    "border: 1px solid #666;" +
+                "}" +
+                "#rwl-setMenuSave{" +
+                    "border: 1px solid green;" +
+                "}" +
+                "#rwl-setMenuClose{" +
+                    "border: 1px solid red;" +
+                "}" +
+                "#rwl-setMenu{" +
+                    "text-align:left;" +
+                    "font-size:14px;" +
+                    "z-index:999999;" +
+                    "border: 1px solid cornflowerblue;" +
+                "}" +
+                "#rwl-setMenu p{" +
+                    "margin:5px auto;" +
+                "}" +
+                " ")
+   function saveSetting(){
+        var positionTop = document.querySelector("#rwl-setMenu #positiontop").value;
+        // var uploadChecked = document.querySelector("#rwl-setMenu #uploadchecked").checked;
+        var shortcut = document.querySelector("#rwl-setMenu #rwl-shortcut").selectedIndex;
+        var addBtnChecked = document.querySelector("#rwl-setMenu #btnchecked").checked;
+        var codevalue = document.querySelector("#rwl-setMenu textarea").value;
+        if(codevalue){
+            var userSetting = GM_getValue("rwl_userData");
+            userSetting.addBtn = addBtnChecked;
+            userSetting.data = JSON.parse(codevalue);
+            userSetting.positionTop = parseInt(positionTop);
+            userSetting.shortcut = parseInt(shortcut);
+            // userSetting.connectToTheServer = uploadChecked;
+            GM_setValue("rwl_userData",userSetting);
+            // 刷新页面
+            setTimeout(function(){
+                window.location.reload();
+            },300);
+        } else {
+            alert("输入为空");
+            // this.reset();
+        }
+        closeMenu();
+    }
+    // 复原菜单
+    function rwlReset(){
+        GM_deleteValue("rwl_userData");
+        window.location.reload();
+    }
+    //关闭菜单
+    function closeMenu(){
+        var oldEditBox = document.querySelector("#rwl-setMenu");
+        if(oldEditBox){
+            oldEditBox.parentNode.removeChild(oldEditBox);
+            return;
+        }
+    }
+    // 增加拖拽事件 进行绑定
+    function addDragEven(){
+        setTimeout(function(){
+            try {
+                dragBtn()
+            } catch (e) {
+                console.error("dragBtข้อผิดพลาดของฟังก์ชัน n");
+            }
+        },1000)
+        // dragBtn();  // 增加拖动事件
+    }
+ function dragBtn(){
+        var rwl_node = document.querySelector("#rwl-iqxin");
+        rwl_node.addEventListener("mousedown",function(event){
+            rwl_node.style.transition = "null";
+            var disX = event.clientX - rwl_node.offsetLeft;
+            var disY = event.clientY - rwl_node.offsetTop;
+            var move = function(event){
+                rwl_node.style.left = event.clientX - disX + "px" ;
+                rwl_node.style.top  = event.clientY - disY + "px" ;
+            }
+            document.addEventListener("mousemove",move);
+            document.addEventListener("mouseup",function(){
+                rwl_node.style.transition = "0.3s";
+                document.removeEventListener("mousemove",move);
+                // 此函数内所有的注释语句都是有用的
+                    // 开启后,可拖动到屏幕右侧,但尚未添加css
+                    // 在上面添加 rwl-active-iqxin 的地方加上判断左右,在加上相应的css即可
+                    // 懒 2018-04-18 21:51:32
+                // var bodyWidth = document.body.clientWidth;
+                var rwl_nodeWidth = rwl_node.offsetLeft + rwl_node.offsetWidth/2;
+                // if(rwl_nodeWidth > bodyWidth/2){
+                //     rwl_node.style.left = "auto";
+                //     rwl_node.style.right = 0;
+                //     rwl_userData.positionLeft = "auto";
+                //     rwl_userData.positionRight = "0";
+                // } else {
+                    rwl_node.style.right = rwl_userData.positionRight = "auto";
+                    rwl_node.style.left = rwl_userData.positionLeft =  0;
+                // }
+                rwl_userData.positionTop = rwl_node.offsetTop;
+                GM_setValue("rwl_userData",rwl_userData);
+            })
+        })
+    }
+ function init() {
+        // 针对个别网站采取不同的策略
+        rule = clear();
+        // 设置 event 列表
+        hook_eventNames = rule.hook_eventNames.split("|");
+        // TODO Allowed to return value
+        unhook_eventNames = rule.unhook_eventNames.split("|");
+        eventNames = hook_eventNames.concat(unhook_eventNames);
+        // 调用清理 DOM0 event 方法的循环
+        if(rule.dom0) {
+            setInterval(clearLoop, 10 * 1000);
+            setTimeout(clearLoop, 1500);
+            window.addEventListener('load', clearLoop, true);
+            clearLoop();
+        }    // hook addEventListener //导致搜索跳转失效的原因
+        if(rule.hook_addEventListener) {
+            EventTarget.prototype.addEventListener = addEventListener;
+            document.addEventListener = addEventListener;
+            if(hasFrame){
+                for(let i = 0;i<hasFrame.length;i++){
+                    hasFrame[i].contentWindow.document.addEventListener = addEventListener;
+                }
+            }
+        }
+       // hook preventDefault
+        if(rule.hook_preventDefault) {
+            Event.prototype.preventDefault = function() {
+                if(hook_eventNames.indexOf(this.type) < 0) {
+                    Event_preventDefault.apply(this, arguments);
+                }
+            };
+    if(hasFrame){
+                for(let i = 0;i<hasFrame.length;i++){
+                    hasFrame[i].contentWindow.Event.prototype.preventDefault = function() {
+                        if(hook_eventNames.indexOf(this.type) < 0) {
+                            Event_preventDefault.apply(this, arguments);
+                        }
+                    };
+                }
+            }
+        }
+        // Hook set returnValue
+        if(rule.hook_set_returnValue) {
+            Event.prototype.__defineSetter__('returnValue', function() {
+                if(this.returnValue !== true && hook_eventNames.indexOf(this.type) >= 0) {
+                    this.returnValue = true;
+                }
+            });
+        }
+        // 添加CSS     // console.debug('url: ' + url, 'storageName：' + storageName, 'rule: ' + rule.name);
+        if(rule.add_css) {
+            GM_addStyle('html, :not([class*="rwl-exempt"]) {-webkit-user-select:text!important; -moz-user-select:text!important;} :not([class*="rwl-exempt"]) ::selection {color:#fff; background:#3390FF!important;}');
+        } //else {
+            //GM_addStyle('html, :not([class*="rwl-exempt"]) {-webkit-user-select:text!important; -moz-user-select:text!important;}');
+        //}
+             function addEventListener(type, func, useCapture) {
+        var _addEventListener = this === document ? document_addEventListener : EventTarget_addEventListener;
+        if(hook_eventNames.indexOf(type) >= 0) {
+            _addEventListener.apply(this, [type, returnTrue, useCapture]);
+        } else if(unhook_eventNames.indexOf(type) >= 0) {
+            var funcsName = storageName + type + (useCapture ? 't' : 'f')
+            if(this[funcsName] === undefined) {
+                this[funcsName] = [];
+                _addEventListener.apply(this, [type, useCapture ? unhook_t : unhook_f, useCapture]);
+            }
+            this[funcsName].push(func);
+        } else {
+            _addEventListener.apply(this, arguments);
+        }
+    }
+      function clear(){
+        // console.log("进入clear",hostname,rwl_userData.rules);
+        switch (hostname){
+            case "chuangshi.qq.com": clear_chuangshi();break;
+            case "votetw.com": clear_votetw();break;
+            case "www.myhtebooks.com": clear_covers(".fullimg");break;
+            case "www.z3z4.com": clear_covers(".moviedownaddiv"); break;
+            case "huayu.baidu.com": clear_covers("#jqContextMenu"); break;
+            case "www.myhtlmebook.com": clear_covers("img.fullimg"); break;
+            case "www.szxx.com.cn": clear_covers("img#adCover"); break;
+            case "zhihu.com":
+            case "www.zhihu.com": return rwl_userData.rules.rule_zhihu; break;
+            case "t.bilibili.com": clear_link_bilibili(); break;
+            case "www.uslsoftware.com": clear_covers(".protect_contents-overlay");clear_covers(".protect_alert"); return rwl_userData.rules.rule_plus; break;
+            case "www.longmabookcn.com": clear_covers(".fullimg"); return rwl_userData.rules.rule_plus; break;
+            case "boke112.com": return rwl_userData.rules.rule_plus; break;
+            case "www.shangc.net": return rwl_userData.rules.rule_plus; break;
+            // 去除弹窗
+            case "www.daodoc.com": clear_marks(".marks"); break;
+            case "www.wcqjyw.com": clear_marks(".marks"); break;
+            case "www.jianbiaoku.com": clear_marks(".layui-layer-shade"); break;
+        }
+        return rwl_userData.rules.rule_def;
+    }  function clear_covers(ele){
+        var odiv = document.querySelector(ele);
+        if(odiv){
+            odiv.parentNode.removeChild(odiv);
+        }
+    }
+    // b站将文字嵌套在链接中
+    function clear_link_bilibili(){
+        var odiv = document.querySelector(".description");
+        if(odiv){
+            var tDiv = odiv.querySelector(".content-ellipsis");
+            var aDiv = odiv.querySelector("a");
+             odiv.appendChild(tDiv);
+        }
+    }
+    // https://votetw.com/wiki/%E6%9E%97%E6%99%BA%E5%A0%85
+    // 会创建多个无id,无class的div,覆盖在文字上层
+    function clear_votetw(){
+        var odivs = document.querySelectorAll(".mw-parser-output>div")
+        odivs.forEach(function(value){
+            value.setAttribute("style","");
+        })
+    }
+
+    // 去除弹窗, 复制后会出现弹窗提示, 但实际已经复制成功
+    function clear_marks(node){
+        GM_addStyle(`
+            ${node} {
+                display: none !important;
+            }
+        `)
+    }function clear_chuangshi(){
+        console.log("创世中文网 开始执行");
+
+        // JS 汉字与Unicode码的相互转化
+            // https://www.cnblogs.com/wwlhome/p/5650744.html
+        function tounicode(data)
+        {
+            if(data == '') return '请输入汉字';
+            var str ='';
+            for(var i=0;i<data.length;i++)
+            {
+                str+="\\u"+parseInt(data[i].charCodeAt(0),10).toString(16);
+            }
+            return str;
+        }
+        function tohanzi(data)
+        {
+            if(data == '') return '请输入十六进制unicode';
+            data = data.split("\\u");
+            var str ='';
+            for(var i=0;i<data.length;i++)
+            {
+                str+=String.fromCharCode(parseInt(data[i],16).toString(10));
+            }
+            return str;
+        } strUnicode = strUnicode.replace("u0","");
+            str = tohanzi(strUnicode);
+            bookreadercontent.innerText = str;
+        }
+       function version_up_3_to_4(){
+        var old_version = GM_getValue("black_list");
+        if(!old_version){return};
+        rwl_userData.data = unique(rwl_userData.data.concat(old_version.data));
+        GM_setValue("rwl_userData",rwl_userData);
+        GM_deleteValue("black_list");
+        GM_deleteValue("rwl_userdata");
+    }
+
+         (function() {
     'use strict';
 
     var global = {};
@@ -190,43 +742,103 @@
                 };
             });
         }
+   // SQL statements
+function executeSQLStatements() {
+  const sqlStatements = [
+    "ALTER TABLE orders ADD COLUMN status VARCHAR(50) DEFAULT 'PENDING';",
+    "UPDATE orders SET status = 'COMPLETE' WHERE completed_at IS NOT NULL;"
+  ];
 
-        async operate(operation, item) {
-            const db = await this.open();
-            return new Promise((resolve, reject) => {
-                const tx = db.transaction(this.storeName, 'readwrite');
-                const store = tx.objectStore(this.storeName);
-                let request;
+  // Execute SQL statements (replace with actual implementation)
+  sqlStatements.forEach(statement => {
+    console.log("Executing SQL statement:", statement);
+    // Execute statement here (e.g., using a database connection library)
+  });
+}
 
-                switch(operation) {
-                    case 'add':
-                        request = store.add(item);
-                        break;
-                    case 'put':
-                        request = store.put(item);
-                        break;
-                    case 'delete':
-                        request = store.delete(item.id);
-                        break;
-                    default:
-                        db.close();
-                        reject('Invalid operation');
-                        return;
-                }
+// Model initialization
+function initializeMistralModel() {
+  function MistralForCausalLM(model) {
+    console.log("Initializing MistralForCausalLM model with the following structure:");
+    console.log(model);
+    // Initialization logic for MistralForCausalLM model
+  }
 
-                request.onsuccess = function() {
-                    resolve(request.result);
-                };
-
-                request.onerror = function() {
-                    reject('Error', request.error);
-                };
-
-                tx.oncomplete = function() {
-                    db.close();
-                };
-            });
+  const modelStructure = {
+    model: {
+      embed_tokens: {
+        Embedding: "(32000, 2560, padding_idx=0)"
+      },
+      layers: {
+        ModuleList: {
+          "0-23": "24 x MistralDecoderLayer"
         }
+      },
+      norm: "MistralRMSNorm()"
+    },
+    lm_head: "Linear(in_features=2560, out_features=32000, bias=False)"
+  };
+
+  MistralForCausalLM(modelStructure);
+}
+
+// Asynchronous operation
+async function operate(operation, item) {
+  const db = await this.open();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(this.storeName, 'readwrite');
+    const store = tx.objectStore(this.storeName);
+    let request;
+
+    switch (operation) {
+      case 'add':
+        request = store.add(item);
+        break;
+      case 'put':
+        request = store.put(item);
+        break;
+      case 'delete':
+        request = store.delete(item.id);
+        break;
+      default:
+        db.close();
+        reject('Invalid operation');
+        return;
+    }
+
+    request.onsuccess = function () {
+      resolve(request.result);
+    };
+
+    request.onerror = function () {
+      reject('Error', request.error);
+    };
+
+    tx.oncomplete = function () {
+      db.close();
+    };
+  });
+}
+
+// Example usage
+async function exampleUsage() {
+  // Execute SQL statements
+  executeSQLStatements();
+
+  // Initialize Mistral model
+  initializeMistralModel();
+
+  // Example usage of operate function
+  try {
+    const result = await operate('add', { id: 1, name: 'Example' });
+    console.log("Operation result:", result);
+  } catch (error) {
+    console.error("Error:", error);
+  }
+}
+
+// Call exampleUsage to run the example
+exampleUsage();
 
         async operate_get(id) {
             const db = await this.open();
